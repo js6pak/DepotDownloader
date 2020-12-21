@@ -3,15 +3,20 @@
     <TargetFramework>netstandard2.0</TargetFramework>
 
     <AssemblyName>DepotDownloader.Library</AssemblyName>
-    <Version>0.1.1</Version>
+    <Version>0.1.2</Version>
     <Description>Steam Downloading Utility</Description>
 
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>https://github.com/js6pak/DepotDownloader</RepositoryUrl>
     <PackageLicenseExpression>GPL-2.0-only</PackageLicenseExpression>
+
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="protobuf-net" Version="3.0.101" />
     <PackageReference Include="SteamKit2" Version="2.4.0-Alpha.2" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0" PrivateAssets="All" />
   </ItemGroup>
 </Project>
