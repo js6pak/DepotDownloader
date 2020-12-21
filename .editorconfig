@@ -5,3 +5,6 @@ root = true
 [*]
 indent_style = space
 indent_size = 4
+
+[*.{csproj, vbproj, vcxproj, vcxproj.filters, proj, projitems, shproj}]
+indent_size = 2

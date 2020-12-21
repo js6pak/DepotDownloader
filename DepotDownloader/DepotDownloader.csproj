@@ -8,6 +8,7 @@
 
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>https://github.com/js6pak/DepotDownloader</RepositoryUrl>
+    <PackageLicenseExpression>GPL-2.0-only</PackageLicenseExpression>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="protobuf-net" Version="3.0.101" />
