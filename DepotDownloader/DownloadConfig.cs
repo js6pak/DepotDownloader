@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 
 namespace DepotDownloader
 {
-    class DownloadConfig
+    public class DownloadConfig
     {
         public int CellID { get; set; }
         public bool DownloadAllPlatforms { get; set; }
@@ -19,8 +19,8 @@ namespace DepotDownloader
 
         public bool VerifyAll { get; set; }
 
-        public int MaxServers { get; set; }
-        public int MaxDownloads { get; set; }
+        public int MaxServers { get; set; } = 20;
+        public int MaxDownloads { get; set; } = 8;
 
         public string SuppliedPassword { get; set; }
         public bool RememberPassword { get; set; }

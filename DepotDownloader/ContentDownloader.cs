@@ -18,7 +18,7 @@ namespace DepotDownloader
         public ContentDownloaderException( String value ) : base( value ) {}
     }
 
-    static class ContentDownloader
+    public static class ContentDownloader
     {
         public const uint INVALID_APP_ID = uint.MaxValue;
         public const uint INVALID_DEPOT_ID = uint.MaxValue;
@@ -27,7 +27,7 @@ namespace DepotDownloader
 
         public static DownloadConfig Config = new DownloadConfig();
 
-        private static Steam3Session steam3;
+        public static Steam3Session steam3;
         private static Steam3Session.Credentials steam3Credentials;
         private static CDNClientPool cdnPool;
 
@@ -145,7 +145,7 @@ namespace DepotDownloader
             return false;
         }
 
-        internal static KeyValue GetSteam3AppSection( uint appId, EAppInfoSection section )
+        public static KeyValue GetSteam3AppSection( uint appId, EAppInfoSection section )
         {
             if ( steam3 == null || steam3.AppInfo == null )
             {
@@ -336,7 +336,7 @@ namespace DepotDownloader
             }
         }
 
-        public static bool InitializeSteam3( string username, string password )
+        public static bool InitializeSteam3( string username = null, string password = null )
         {
             string loginKey = null;
 
@@ -455,8 +455,14 @@ namespace DepotDownloader
             File.Move( fileStagingPath, fileFinalPath );
         }
 
-        public static async Task DownloadAppAsync( uint appId, List<(uint depotId, ulong manifestId)> depotManifestIds, string branch, string os, string arch, string language, bool lv, bool isUgc )
+        public static Task DownloadAppAsync(uint appId, uint depotId, ulong manifestId = INVALID_MANIFEST_ID, string branch = DEFAULT_BRANCH, string os = null, string arch = null, string language = null, bool lv = false, bool isUgc = false)
         {
+            return DownloadAppAsync(appId, new List<(uint depotId, ulong manifestId)> { (depotId, manifestId) }, branch, os, arch, language, lv, isUgc);
+        }
+
+        public static async Task DownloadAppAsync( uint appId, List<(uint depotId, ulong manifestId)> depotManifestIds, string branch = DEFAULT_BRANCH, string os = null, string arch = null, string language = null, bool lv = false, bool isUgc = false )
+        {
+            cdnPool?.Shutdown();
             cdnPool = new CDNClientPool(steam3, appId);
 
             // Load our configuration data containing the depots currently installed
@@ -928,7 +934,7 @@ namespace DepotDownloader
             string stagingDir = Path.Combine(depot.installDir, STAGING_DIR);
 
             var filesAfterExclusions = newProtoManifest.Files.AsParallel().Where(f => TestIsFileIncluded(f.FileName)).ToList();
-            var allFileNames = new HashSet<string>(filesAfterExclusions.Count);
+            var allFileNames = new HashSet<string>();
 
             // Pre-process
             filesAfterExclusions.ForEach(file =>
@@ -992,7 +998,7 @@ namespace DepotDownloader
             // Check for deleted files if updating the depot.
             if (depotFilesData.previousManifest != null)
             {
-                var previousFilteredFiles = depotFilesData.previousManifest.Files.AsParallel().Where(f => TestIsFileIncluded(f.FileName)).Select(f => f.FileName).ToHashSet();
+                var previousFilteredFiles = new HashSet<string>(depotFilesData.previousManifest.Files.AsParallel().Where(f => TestIsFileIncluded(f.FileName)).Select(f => f.FileName));
 
                 // Check if we are writing to a single output directory. If not, each depot folder is managed independently
                 if (string.IsNullOrWhiteSpace(ContentDownloader.Config.InstallDirectory))

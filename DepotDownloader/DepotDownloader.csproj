@@ -1,8 +1,13 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <TargetFramework>net5.0</TargetFramework>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <TargetFramework>netstandard2.0</TargetFramework>
+
+    <AssemblyName>DepotDownloader.Library</AssemblyName>
+    <Version>0.1.1</Version>
+    <Description>Steam Downloading Utility</Description>
+
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/js6pak/DepotDownloader</RepositoryUrl>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="protobuf-net" Version="3.0.101" />

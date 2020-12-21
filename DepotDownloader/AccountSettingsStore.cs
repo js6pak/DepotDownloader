@@ -4,16 +4,13 @@ using ProtoBuf;
 using System.IO;
 using System.IO.Compression;
 using System.IO.IsolatedStorage;
-using System.Linq;
-using SteamKit2;
-using SteamKit2.Discovery;
 
 namespace DepotDownloader
 {
     [ProtoContract]
-    class AccountSettingsStore
+    public class AccountSettingsStore
     {
-        [ProtoMember(1, IsRequired=false)]
+        [ProtoMember(1, IsRequired = false)]
         public Dictionary<string, byte[]> SentryData { get; private set; }
 
         [ProtoMember(2, IsRequired = false)]
@@ -31,7 +28,7 @@ namespace DepotDownloader
             LoginKeys = new Dictionary<string, string>();
         }
 
-        static bool Loaded
+        public static bool Loaded
         {
             get { return Instance != null; }
         }
@@ -41,9 +38,6 @@ namespace DepotDownloader
 
         public static void LoadFromFile(string filename)
         {
-            if (Loaded)
-                throw new Exception("Config already loaded");
-
             if (IsolatedStorage.FileExists(filename))
             {
                 try

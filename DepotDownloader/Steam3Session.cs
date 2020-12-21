@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 namespace DepotDownloader
 {
 
-    class Steam3Session
+    public class Steam3Session
     {
         public class Credentials
         {
@@ -41,14 +41,14 @@ namespace DepotDownloader
 
         public SteamClient steamClient;
         public SteamUser steamUser;
-        SteamApps steamApps;
+        public SteamApps steamApps;
         SteamCloud steamCloud;
         SteamUnifiedMessages.UnifiedService<IPublishedFile> steamPublishedFile;
 
-        CallbackManager callbacks;
+        public CallbackManager callbacks;
 
         bool authenticatedUser;
-        bool bConnected;
+        public bool bConnected;
         bool bConnecting;
         bool bAborted;
         bool bExpectingDisconnectRemote;
@@ -653,7 +653,7 @@ namespace DepotDownloader
             {
                 if ( license.AccessToken > 0 )
                 {
-                    PackageTokens.TryAdd( license.PackageID, license.AccessToken );
+                    PackageTokens.Add( license.PackageID, license.AccessToken );
                 }
             }
         }
