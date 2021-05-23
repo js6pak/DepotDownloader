@@ -58,7 +58,7 @@ namespace DepotDownloader
             {
                 try
                 {
-                    string fileListData = await File.ReadAllTextAsync( fileList );
+                    string fileListData = File.ReadAllText( fileList );
                     var files = fileListData.Split( new char[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries );
 
                     ContentDownloader.Config.UsingFileList = true;
