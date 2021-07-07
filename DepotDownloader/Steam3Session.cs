@@ -594,8 +594,16 @@ namespace DepotDownloader
 
                 if ( is2FA )
                 {
-                    Console.Write( "Please enter your 2 factor auth code from your authenticator app: " );
-                    logonDetails.TwoFactorCode = Console.ReadLine();
+                    var twoFactorCode = ContentDownloader.Config.TwoFactorCode;
+
+                    if (twoFactorCode != null)
+                    {
+                        logonDetails.TwoFactorCode = twoFactorCode();
+                    }
+                    else
+                    {
+                        throw new Exception("Two factor code is required for this account and ContentDownloader.Config.TwoFactorCode was null");
+                    }
                 }
                 else if ( isLoginKey )
                 {
@@ -604,21 +612,25 @@ namespace DepotDownloader
 
                     logonDetails.LoginKey = null;
 
-                    if ( ContentDownloader.Config.SuppliedPassword != null )
+                    if ( ContentDownloader.Config.SuppliedPassword == null )
                     {
-                        Console.WriteLine( "Login key was expired. Connecting with supplied password." );
-                        logonDetails.Password = ContentDownloader.Config.SuppliedPassword;
+                        throw new Exception("Login key was expired and no password was provided");
                     }
-                    else
-                    {
-                        Console.Write( "Login key was expired. Please enter your password: " );
-                        logonDetails.Password = Util.ReadPassword();
-                    }
+
+                    logonDetails.Password = ContentDownloader.Config.SuppliedPassword;
                 }
                 else
                 {
-                    Console.Write( "Please enter the authentication code sent to your email address: " );
-                    logonDetails.AuthCode = Console.ReadLine();
+                    var authCode = ContentDownloader.Config.AuthCode;
+
+                    if (authCode != null)
+                    {
+                        logonDetails.AuthCode = authCode();
+                    }
+                    else
+                    {
+                        throw new Exception("Auth code is required for this account and ContentDownloader.Config.AuthCode was null");
+                    }
                 }
 
                 Console.Write( "Retrying Steam3 connection..." );

@@ -34,37 +34,6 @@ namespace DepotDownloader
             return Environment.Is64BitOperatingSystem ? "64" : "32";
         }
 
-        public static string ReadPassword()
-        {
-            ConsoleKeyInfo keyInfo;
-            StringBuilder password = new StringBuilder();
-
-            do 
-            {
-                keyInfo = Console.ReadKey( true );
-
-                if ( keyInfo.Key == ConsoleKey.Backspace )
-                {
-                    if ( password.Length > 0 )
-                    {
-                        password.Remove( password.Length - 1, 1 );
-                        Console.Write( "\x1B[1D\x1B[1P" );
-                    }
-                    continue;
-                }
-
-                /* Printable ASCII characters only */
-                char c = keyInfo.KeyChar;
-                if ( c >= ' ' && c <= '~' )
-                {
-                    password.Append( c );
-                    Console.Write( '*' );
-                }
-            } while ( keyInfo.Key != ConsoleKey.Enter );
-
-            return password.ToString();
-        }
-
         // Validate a file against Steam3 Chunk data
         public static List<ProtoManifest.ChunkData> ValidateSteam3FileChecksums(FileStream fs, ProtoManifest.ChunkData[] chunkdata)
         {

@@ -247,8 +247,7 @@ namespace DepotDownloader
                     string password = Config.BetaPassword;
                     if ( password == null )
                     {
-                        Console.Write( "Please enter the password for branch {0}: ", branch );
-                        Config.BetaPassword = password = Console.ReadLine();
+                        throw new Exception("Config.BetaPassword is required for protected branches");
                     }
 
                     var encrypted_v1 = node_encrypted[ "encrypted_gid" ];
@@ -338,6 +337,8 @@ namespace DepotDownloader
 
         public static bool InitializeSteam3( string username = null, string password = null )
         {
+            Config.SuppliedPassword = password;
+            
             string loginKey = null;
 
             if ( username != null && Config.RememberPassword )
