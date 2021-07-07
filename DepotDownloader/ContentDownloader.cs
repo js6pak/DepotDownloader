@@ -846,8 +846,11 @@ namespace DepotDownloader
                         try
                         {
                             connection = cdnPool.GetConnection(cts.Token);
+
+                            DebugLog.WriteLine("ContentDownloader", "Authenticating connection to {0}", connection);
                             var cdnToken = await cdnPool.AuthenticateConnection(appId, depot.id, connection);
 
+                            DebugLog.WriteLine("ContentDownloader", "Downloading manifest {0} from {1} with {2}", depot.manifestId, connection, cdnPool.ProxyServer != null ? cdnPool.ProxyServer : "no proxy");
                             depotManifest = await cdnPool.CDNClient.DownloadManifestAsync(depot.id, depot.manifestId,
                                 connection, cdnToken, depot.depotKey, proxyServer: cdnPool.ProxyServer).ConfigureAwait(false);
 
@@ -913,21 +916,7 @@ namespace DepotDownloader
 
             if (Config.DownloadManifestOnly)
             {
-                StringBuilder manifestBuilder = new StringBuilder();
-                string txtManifest = Path.Combine(depot.installDir, string.Format("manifest_{0}_{1}.txt", depot.id, depot.manifestId));
-                manifestBuilder.Append(string.Format("{0}\n\n", newProtoManifest.CreationTime));
-
-                foreach (var file in newProtoManifest.Files)
-                {
-                    if (file.Flags.HasFlag(EDepotFileFlag.Directory))
-                        continue;
-
-                    manifestBuilder.Append(string.Format("{0}\n", file.FileName));
-                    manifestBuilder.Append(string.Format("\t{0}\n", file.TotalSize));
-                    manifestBuilder.Append(string.Format("\t{0}\n", BitConverter.ToString(file.FileHash).Replace("-", "")));
-                }
-
-                File.WriteAllText(txtManifest, manifestBuilder.ToString());
+                DumpManifestToTextFile(depot, newProtoManifest);
                 return null;
             }
 
@@ -1061,7 +1050,14 @@ namespace DepotDownloader
 
                 // create new file. need all chunks
                 fs = File.Create(fileFinalPath);
-                fs.SetLength((long)file.TotalSize);
+                try
+                {
+                    fs.SetLength((long)file.TotalSize);
+                }
+                catch (IOException ex)
+                {
+                    throw new ContentDownloaderException(String.Format("Failed to allocate file {0}: {1}", fileFinalPath, ex.Message));
+                }
                 neededChunks = new List<ProtoManifest.ChunkData>(file.Chunks);
             }
             else
@@ -1077,7 +1073,8 @@ namespace DepotDownloader
                 {
                     neededChunks = new List<ProtoManifest.ChunkData>();
 
-                    if (Config.VerifyAll || !oldManifestFile.FileHash.SequenceEqual(file.FileHash))
+                    var hashMatches = oldManifestFile.FileHash.SequenceEqual(file.FileHash);
+                    if (Config.VerifyAll || !hashMatches)
                     {
                         // we have a version of this file, but it doesn't fully match what we want
                         if (Config.VerifyAll)
@@ -1102,12 +1099,9 @@ namespace DepotDownloader
 
                         var orderedChunks = matchingChunks.OrderBy(x => x.OldChunk.Offset);
 
-                        File.Move(fileFinalPath, fileStagingPath);
+                        var copyChunks = new List<ChunkMatch>();
 
-                        fs = File.Open(fileFinalPath, FileMode.Create);
-                        fs.SetLength((long)file.TotalSize);
-
-                        using (var fsOld = File.Open(fileStagingPath, FileMode.Open))
+                        using (var fsOld = File.Open(fileFinalPath, FileMode.Open))
                         {
                             foreach (var match in orderedChunks)
                             {
@@ -1123,13 +1117,41 @@ namespace DepotDownloader
                                 }
                                 else
                                 {
-                                    fs.Seek((long)match.NewChunk.Offset, SeekOrigin.Begin);
-                                    fs.Write(tmp, 0, tmp.Length);
+                                    copyChunks.Add(match);
                                 }
                             }
                         }
 
-                        File.Delete(fileStagingPath);
+                        if (!hashMatches || neededChunks.Count > 0)
+                        {
+                            File.Move(fileFinalPath, fileStagingPath);
+
+                            using (var fsOld = File.Open(fileStagingPath, FileMode.Open))
+                            {
+                                fs = File.Open(fileFinalPath, FileMode.Create);
+                                try
+                                {
+                                    fs.SetLength((long)file.TotalSize);
+                                }
+                                catch (IOException ex)
+                                {
+                                    throw new ContentDownloaderException(String.Format("Failed to resize file to expected size {0}: {1}", fileFinalPath, ex.Message));
+                                }
+
+                                foreach (var match in copyChunks)
+                                {
+                                    fsOld.Seek((long)match.OldChunk.Offset, SeekOrigin.Begin);
+
+                                    byte[] tmp = new byte[match.OldChunk.UncompressedLength];
+                                    fsOld.Read(tmp, 0, tmp.Length);
+
+                                    fs.Seek((long)match.NewChunk.Offset, SeekOrigin.Begin);
+                                    fs.Write(tmp, 0, tmp.Length);
+                                }
+                            }
+
+                            File.Delete(fileStagingPath);
+                        }
                     }
                 }
                 else
@@ -1139,7 +1161,14 @@ namespace DepotDownloader
                     fs = File.Open(fileFinalPath, FileMode.Open);
                     if ((ulong)fi.Length != file.TotalSize)
                     {
-                        fs.SetLength((long)file.TotalSize);
+                        try
+                        {
+                            fs.SetLength((long)file.TotalSize);
+                        }
+                        catch (IOException ex)
+                        {
+                            throw new ContentDownloaderException(String.Format("Failed to allocate file {0}: {1}", fileFinalPath, ex.Message));
+                        }
                     }
 
                     Console.WriteLine("Validating {0}", fileFinalPath);
@@ -1214,8 +1243,11 @@ namespace DepotDownloader
                 try
                 {
                     connection = cdnPool.GetConnection(cts.Token);
+
+                    DebugLog.WriteLine("ContentDownloader", "Authenticating connection to {0}", connection);
                     var cdnToken = await cdnPool.AuthenticateConnection(appId, depot.id, connection);
 
+                    DebugLog.WriteLine("ContentDownloader", "Downloading chunk {0} from {1} with {2}", chunkID, connection, cdnPool.ProxyServer != null ? cdnPool.ProxyServer : "no proxy");
                     chunkData = await cdnPool.CDNClient.DownloadDepotChunkAsync(depot.id, data,
                         connection, cdnToken, depot.depotKey, proxyServer: cdnPool.ProxyServer).ConfigureAwait(false);
 
@@ -1300,6 +1332,49 @@ namespace DepotDownloader
                 Console.WriteLine("{0,6:#00.00}% {1}", ((float)sizeDownloaded / (float)depotDownloadCounter.CompleteDownloadSize) * 100.0f, fileFinalPath);
             }
 
+        }
+
+        static void DumpManifestToTextFile( DepotDownloadInfo depot, ProtoManifest manifest )
+        {
+            var txtManifest = Path.Combine( depot.installDir, $"manifest_{depot.id}_{depot.manifestId}.txt" );
+
+            using ( var sw = new StreamWriter( txtManifest ) )
+            {
+                sw.WriteLine( $"Content Manifest for Depot {depot.id}" );
+                sw.WriteLine();
+                sw.WriteLine( $"Manifest ID / date     : {depot.manifestId} / {manifest.CreationTime}" );
+
+                int numFiles = 0, numChunks = 0;
+                ulong uncompressedSize = 0, compressedSize = 0;
+
+                foreach ( var file in manifest.Files )
+                {
+                    if ( file.Flags.HasFlag( EDepotFileFlag.Directory ) )
+                        continue;
+
+                    numFiles++;
+                    numChunks += file.Chunks.Count;
+
+                    foreach ( var chunk in file.Chunks )
+                    {
+                        uncompressedSize += chunk.UncompressedLength;
+                        compressedSize += chunk.CompressedLength;
+                    }
+                }
+
+                sw.WriteLine( $"Total number of files  : {numFiles}" );
+                sw.WriteLine( $"Total number of chunks : {numChunks}" );
+                sw.WriteLine( $"Total bytes on disk    : {uncompressedSize}" );
+                sw.WriteLine( $"Total bytes compressed : {compressedSize}" );
+                sw.WriteLine();
+                sw.WriteLine( "          Size Chunks File SHA                                 Flags Name" );
+
+                foreach ( var file in manifest.Files )
+                {
+                    var sha1Hash = BitConverter.ToString( file.FileHash ).Replace( "-", "" );
+                    sw.WriteLine( $"{file.TotalSize,14} {file.Chunks.Count,6} {sha1Hash} {file.Flags,5:D} {file.FileName}" );
+                }
+            }
         }
     }
 }

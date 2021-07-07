@@ -54,6 +54,7 @@ namespace DepotDownloader
         bool bExpectingDisconnectRemote;
         bool bDidDisconnect;
         bool bDidReceiveLoginKey;
+        bool bIsConnectionRecovery;
         int connectionBackoff;
         int seq; // more hack fixes
         DateTime connectTime;
@@ -439,15 +440,23 @@ namespace DepotDownloader
             return details;
         }
 
+        private void ResetConnectionFlags()
+        {
+            bExpectingDisconnectRemote = false;
+            bDidDisconnect = false;
+            bIsConnectionRecovery = false;
+            bDidReceiveLoginKey = false;
+        }
+        
         void Connect()
         {
             bAborted = false;
             bConnected = false;
             bConnecting = true;
             connectionBackoff = 0;
-            bExpectingDisconnectRemote = false;
-            bDidDisconnect = false;
-            bDidReceiveLoginKey = false;
+            
+            ResetConnectionFlags();
+            
             this.connectTime = DateTime.Now;
             this.steamClient.Connect();
         }
@@ -462,12 +471,13 @@ namespace DepotDownloader
             {
                 steamUser.LogOff();
             }
-
-            steamClient.Disconnect();
+            
+            bAborted = true;
             bConnected = false;
             bConnecting = false;
-            bAborted = true;
-
+            bIsConnectionRecovery = false;
+            steamClient.Disconnect();
+            
             // flush callbacks until our disconnected event
             while ( !bDidDisconnect )
             {
@@ -475,6 +485,12 @@ namespace DepotDownloader
             }
         }
 
+        private void Reconnect()
+        {
+            bIsConnectionRecovery = true;
+            steamClient.Disconnect();
+        }
+        
         public void TryWaitForLoginKey()
         {
             if ( logonDetails.Username == null || !credentials.LoggedOn || !ContentDownloader.Config.RememberPassword ) return;
@@ -527,10 +543,14 @@ namespace DepotDownloader
         private void DisconnectedCallback( SteamClient.DisconnectedCallback disconnected )
         {
             bDidDisconnect = true;
-
-            if ( disconnected.UserInitiated || bExpectingDisconnectRemote )
+            
+            // When recovering the connection, we want to reconnect even if the remote disconnects us
+            if ( !bIsConnectionRecovery && ( disconnected.UserInitiated || bExpectingDisconnectRemote ) )
             {
                 Console.WriteLine( "Disconnected from Steam" );
+
+                // Any operations outstanding need to be aborted
+                bAborted = true;
             }
             else if ( connectionBackoff >= 10 )
             {
@@ -549,6 +569,9 @@ namespace DepotDownloader
                 }
 
                 Thread.Sleep( 1000 * ++connectionBackoff );
+
+                // Any connection related flags need to be reset here to match the state after Connect
+                ResetConnectionFlags();
                 steamClient.Connect();
             }
         }
@@ -600,6 +623,14 @@ namespace DepotDownloader
 
                 Console.Write( "Retrying Steam3 connection..." );
                 Connect();
+
+                return;
+            }
+            else if ( loggedOn.Result == EResult.TryAnotherCM )
+            {
+                Console.Write( "Retrying Steam3 connection (TryAnotherCM)..." );
+                
+                Reconnect();
 
                 return;
             }
